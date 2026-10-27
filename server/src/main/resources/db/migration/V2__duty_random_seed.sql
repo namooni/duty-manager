@@ -1,0 +1,1 @@
+ALTER TABLE duties ADD COLUMN random_seed BIGINT NULL;

@@ -1,0 +1,61 @@
+import {useEffect, useId, useRef, type ReactNode} from 'react';
+import styled from 'styled-components';
+import Button from '../button/Button';
+import Text from '../Text/Text';
+import {PanelHead, PanelBody} from '../surfaces/Surfaces';
+export function Modal({
+  title,
+  onClose,
+  busy,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  busy: boolean;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const id = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, [title]);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+    <Dialog
+      ref={ref}
+      aria-labelledby={id}
+      onCancel={event => {
+        event.preventDefault();
+        if (!busy) onClose();
+      }}
+    >
+      <PanelHead>
+        <Text as="h2" variant="h2" id={id} ref={heading} tabIndex={-1}>
+          {title}
+        </Text>
+        <Button aria-label="閉じる" disabled={busy} onClick={onClose}>
+          <Text>×</Text>
+        </Button>
+      </PanelHead>
+      <PanelBody>{children}</PanelBody>
+    </Dialog>
+  );
+}
+const Dialog = styled.dialog`
+  border: 1px solid ${({theme}) => theme.semantic.borderDefault};
+  border-radius: ${({theme}) => theme.radius.lg};
+  padding: 0;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 88vh;
+  box-shadow: 0 24px 100px #1a2e4b30;
+  color: ${({theme}) => theme.semantic.textPrimary};
+  &::backdrop {
+    background: #15283880;
+    backdrop-filter: blur(3px);
+  }
+`;

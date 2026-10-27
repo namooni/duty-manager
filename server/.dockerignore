@@ -1,0 +1,6 @@
+*
+!build/
+build/*
+!build/libs/
+build/libs/*
+!build/libs/duty-manager-server-0.1.0.jar

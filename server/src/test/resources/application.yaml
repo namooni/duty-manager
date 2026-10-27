@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:duty;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: test
+  flyway:
+    enabled: true
+app:
+  zone: Asia/Tokyo
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    local-cache-scope: STATEMENT
+    cache-enabled: false
+    default-executor-type: SIMPLE

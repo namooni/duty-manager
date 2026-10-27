@@ -1,0 +1,20 @@
+server:
+  port: ${SERVER_PORT:8080}
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/duty_manager?connectionTimeZone=Asia/Tokyo}
+    username: ${DB_USERNAME:duty}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: true
+  jackson:
+    time-zone: Asia/Tokyo
+app:
+  zone: ${APP_ZONE:Asia/Tokyo}
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    local-cache-scope: STATEMENT
+    cache-enabled: false
+    default-executor-type: SIMPLE

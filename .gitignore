@@ -1,0 +1,11 @@
+node_modules/
+client/dist/
+server/.gradle/
+server/build/
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+*.tsbuildinfo

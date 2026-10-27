@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dutymanager.mapper.schedule.ScheduleMapper">
+  <resultMap id="change" type="com.dutymanager.model.schedule.RotationChange">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="previous_name" javaType="java.lang.String"/>
+      <arg column="new_name" javaType="java.lang.String"/>
+      <arg column="reason" javaType="java.lang.String"/>
+      <arg column="changed_at" javaType="java.lang.String"/>
+    </constructor>
+  </resultMap>
+  <select id="changes" resultMap="change">
+    SELECT c.id,p.name AS previous_name,n.name AS new_name,c.reason,c.changed_at
+    FROM duty_rotation_changes c
+    JOIN employees p ON p.id=c.previous_employee_id
+    JOIN employees n ON n.id=c.new_employee_id
+    WHERE c.rotation_slot_id=#{id} ORDER BY c.id DESC
+  </select>
+</mapper>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dutymanager.mapper.assignment.AssignmentMapper">
+  <resultMap id="assignment" type="com.dutymanager.model.assignment.Assignment">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="duty_id" javaType="_long"/>
+      <arg column="duty_name" javaType="java.lang.String"/>
+      <arg column="period_start" javaType="java.time.LocalDate"/>
+      <arg column="period_end" javaType="java.time.LocalDate"/>
+      <arg column="employee_id" javaType="_long"/>
+      <arg column="employee_name" javaType="java.lang.String"/>
+      <arg column="slot_index" javaType="_int"/>
+    </constructor>
+  </resultMap>
+  <resultMap id="change" type="com.dutymanager.mapper.assignment.AssignmentChangeRow">
+    <constructor>
+      <idArg column="id" javaType="_long"/>
+      <arg column="previous_name" javaType="java.lang.String"/>
+      <arg column="new_name" javaType="java.lang.String"/>
+      <arg column="reason" javaType="java.lang.String"/>
+      <arg column="changed_at" javaType="java.sql.Timestamp"/>
+    </constructor>
+  </resultMap>
+  <sql id="assignmentProjection">
+    SELECT a.id,a.duty_id,d.name duty_name,a.period_start,a.period_end,
+           a.employee_id,e.name employee_name,a.slot_index
+    FROM assignments a
+    JOIN duties d ON d.id=a.duty_id
+    JOIN employees e ON e.id=a.employee_id
+  </sql>
+  <select id="findAll" resultMap="assignment">
+    <include refid="assignmentProjection"/>
+    WHERE a.period_start &lt;= #{to} AND a.period_end &gt;= #{from}
+    ORDER BY a.period_start,d.id,a.slot_index
+  </select>
+  <select id="findById" resultMap="assignment">
+    <include refid="assignmentProjection"/>
+    WHERE a.id=#{id}
+  </select>
+  <select id="findChanges" resultMap="change">
+    SELECT c.id,p.name previous_name,n.name new_name,c.reason,c.changed_at
+    FROM assignment_changes c
+    JOIN employees p ON p.id=c.previous_employee_id
+    JOIN employees n ON n.id=c.new_employee_id
+    WHERE c.assignment_id=#{id}
+    ORDER BY c.id DESC
+  </select>
+</mapper>
