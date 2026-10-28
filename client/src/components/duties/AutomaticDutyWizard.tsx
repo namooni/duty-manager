@@ -1,3 +1,4 @@
+import {RotationPreviewList} from './RotationPreviewList';
 import {useAutomaticDutyCreation} from '@/hooks/duties/useAutomaticDutyCreation';
 import type {Employee} from '@/repositories/employees/employees.domain';
 import type {Recurrence, RotationMode} from '@/repositories/automatic/automatic.domain';
@@ -56,7 +57,7 @@ export function AutomaticDutyWizard({
               type="date"
               required
               value={m.duty.form.anchorDate}
-              onChange={e => m.duty.update('anchorDate', e.target.value)}
+              onChange={e => m.updateStartDate(e.target.value)}
             />
           </U.Field>
           <U.Divider />
@@ -175,6 +176,7 @@ export function AutomaticDutyWizard({
                     />
                   </U.Field>
                   <U.Button
+                    variant="dangerText"
                     aria-label={'開催日' + (index + 1) + 'を除く'}
                     onClick={() => m.removeDate(index)}
                   >
@@ -258,6 +260,51 @@ export function AutomaticDutyWizard({
             </U.Field>
           </U.Row>
           <DutyParticipants form={m.duty} />
+          <U.Divider />
+          <U.Text as="h3" variant="h3">
+            運用期間と担当予定
+          </U.Text>
+          <U.Field>
+            <U.Text>当番の終了</U.Text>
+            <U.Select
+              value={m.hasEnd ? 'DATE' : 'NONE'}
+              onChange={e => m.setHasEnd(e.target.value === 'DATE')}
+            >
+              <option value="NONE">終了日なし</option>
+              <option value="DATE">終了日を指定</option>
+            </U.Select>
+          </U.Field>
+          {m.hasEnd && (
+            <U.Field>
+              <U.Text>当番の終了日</U.Text>
+              <U.Input
+                type="date"
+                required
+                min={m.duty.form.anchorDate}
+                value={m.endDate}
+                onChange={e => m.setEndDate(e.target.value)}
+              />
+            </U.Field>
+          )}
+          <U.Field>
+            <U.Text>担当者を決める期間</U.Text>
+            <U.Row>
+              <U.Text>{m.duty.form.anchorDate + ' 〜'}</U.Text>
+              <U.Input
+                type="date"
+                required
+                aria-label="担当者を決める期間の終了日"
+                min={m.duty.form.anchorDate}
+                max={m.hasEnd ? m.endDate : undefined}
+                value={m.plannedThrough}
+                onChange={e => m.setPlannedThrough(e.target.value)}
+              />
+            </U.Row>
+          </U.Field>
+          <U.Muted>
+            この期間の担当予定を作成します。週・月の途中で区切る場合は、その担当期間の終わりまで作成し、次の画面で実際の期間を確認できます。当番の終了日がある場合は、その日で終了します。
+          </U.Muted>
+
           <U.Row>
             <U.Button disabled={m.busy} onClick={m.close}>
               キャンセル
@@ -277,51 +324,23 @@ export function AutomaticDutyWizard({
             担当：{m.rotationText} · 各{m.review.draft.duty.assigneeCount}人 · 参加
             {m.review.draft.duty.memberIds.length}人
           </U.Text>
-          <U.Muted>参加者は順番に繰り返し担当します。登録した開催日はすべて表示します。</U.Muted>
-          <U.Form
-            onSubmit={event => {
-              event.preventDefault();
-              void m.preview();
-            }}
-          >
-            <U.Row>
-              <U.Field>
-                <U.Text>表示する回数</U.Text>
-                <U.Input
-                  type="number"
-                  required
-                  min={m.minimumPreviewCount}
-                  max={200}
-                  value={m.previewCount}
-                  disabled={m.busy}
-                  onChange={event => m.setPreviewCount(Number(event.target.value))}
-                />
-              </U.Field>
-              <U.Button type="submit" disabled={m.busy}>
-                {m.busy ? '計算中…' : '表示を更新'}
-              </U.Button>
-            </U.Row>
-            <U.Muted>当番はこの回数で終了せず、自動で続きます。</U.Muted>
-          </U.Form>
-          <U.Flex flexDirection="column" style={{maxHeight: 380, overflowY: 'auto'}}>
-            {m.review.preview.turns.map(turn => (
-              <U.ListItem key={turn.key}>
-                <U.Text as="strong">
-                  {m.rule.rotationMode === 'CALENDAR'
-                    ? '担当期間：' + turn.start + ' 〜 ' + turn.end
-                    : '第' + (turn.sequence + 1) + '回 · ' + (turn.start ?? '開催日未定')}
-                </U.Text>
-                <U.Row>
-                  {turn.assignees.map(person => (
-                    <U.Badge key={person.id}>
-                      {person.name}（{person.employeeNumber}）
-                    </U.Badge>
-                  ))}
-                </U.Row>
-                {turn.warning && <U.Text role="alert">{turn.warning}</U.Text>}
-              </U.ListItem>
-            ))}
-          </U.Flex>
+          <U.Text>当番の終了：{m.review.draft.endDate ?? '終了日なし'}</U.Text>
+          <U.Text>
+            今回の担当予定：
+            {m.review.draft.duty.anchorDate +
+              ' 〜 ' +
+              (m.review.preview.range?.plannedThrough ?? m.review.draft.plannedThrough)}
+          </U.Text>
+          <U.Text as="strong">
+            {m.review.preview.turns.length +
+              '回分の担当を作成します。参加者' +
+              m.review.draft.duty.memberIds.length +
+              '人で繰り返し担当します。'}
+          </U.Text>
+          <U.Muted>
+            期間外の予定は自動作成しません。続きは当番詳細の「担当予定を追加」から追加できます。
+          </U.Muted>
+          <RotationPreviewList preview={m.review.preview} mode={m.rule.rotationMode} />
           {m.rule.recurrence === 'EXPLICIT_DATES' && (
             <U.Muted>日付未定の回は、開催日を登録するとスケジュールに反映されます。</U.Muted>
           )}
@@ -333,7 +352,7 @@ export function AutomaticDutyWizard({
               入力に戻る
             </U.Button>
             <U.Button variant="primary" disabled={!m.canStart} onClick={m.activate}>
-              {m.busy ? '作成中…' : 'このルールで開始'}
+              {m.busy ? '作成中…' : 'この内容で作成'}
             </U.Button>
           </U.Row>
         </U.Stack>

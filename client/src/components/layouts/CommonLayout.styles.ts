@@ -3,7 +3,7 @@ import Flex from '@/components/ui/layouts/Flex';
 import BaseButton from '@/components/ui/foundation/BaseButton';
 export const Shell = styled.div(props => ({
   display: 'grid',
-  gridTemplateColumns: '200px minmax(0, 1fr)',
+  gridTemplateColumns: '188px minmax(0, 1fr)',
   minHeight: '100vh',
   background: props.theme.palette.boardPaper,
   '@media (max-width:900px)': {gridTemplateColumns: '1fr'},
@@ -13,13 +13,13 @@ export const Sidebar = styled(Flex).attrs({as: 'aside'})(props => ({
   top: 0,
   height: '100dvh',
   flexDirection: 'column',
-  gap: 36,
-  padding: '30px 20px',
+  gap: 28,
+  padding: '24px 16px',
   borderRight: '1px solid ' + props.theme.palette.boardLine,
   '@media (max-width:900px)': {
     position: 'static',
     height: 'auto',
-    padding: '20px 24px',
+    padding: '16px 20px',
     gap: 18,
     borderRight: 0,
     borderBottom: '1px solid ' + props.theme.palette.boardLine,
@@ -27,7 +27,7 @@ export const Sidebar = styled(Flex).attrs({as: 'aside'})(props => ({
 }));
 export const Brand = styled(Flex)(props => ({
   flexDirection: 'column',
-  fontSize: 23,
+  fontSize: 20,
   fontWeight: 700,
   letterSpacing: '-.04em',
   color: props.theme.palette.boardInk,
@@ -47,10 +47,10 @@ export const Navigation = styled(Flex).attrs({as: 'nav'})({
 });
 export const NavButton = styled(BaseButton)<{$active: boolean}>(props => ({
   textAlign: 'left',
-  padding: '12px 14px',
+  padding: '10px 12px',
   border: 0,
   borderLeft: '2px solid ' + (props.$active ? props.theme.palette.boardAccent : 'transparent'),
-  borderRadius: 4,
+  borderRadius: props.theme.radius.sm,
   fontSize: 13,
   fontWeight: props.$active ? 650 : 400,
   color: props.$active ? props.theme.palette.boardInk : props.theme.palette.boardMuted,
@@ -65,11 +65,11 @@ export const SideNote = styled(Flex)(props => ({
 }));
 export const Main = styled(Flex).attrs({as: 'main'})({
   flexDirection: 'column',
-  padding: '30px 40px 48px',
+  padding: '24px 28px 36px',
   maxWidth: 1500,
   width: '100%',
   minWidth: 0,
   margin: '0 auto',
-  '@media (max-width:1100px)': {padding: '26px 24px'},
-  '@media (max-width:600px)': {padding: '22px 16px'},
+  '@media (max-width:1100px)': {padding: '22px 20px'},
+  '@media (max-width:600px)': {padding: '20px 16px'},
 });

@@ -1,7 +1,6 @@
 package com.dutymanager.service.schedule;
 
 import com.dutymanager.common.time.DateRangeValidator;
-import com.dutymanager.engine.schedule.AutomaticEngine;
 import com.dutymanager.exception.*;
 import com.dutymanager.model.duty.*;
 import com.dutymanager.model.employee.Employee;
@@ -20,34 +19,39 @@ public class LiveScheduleService {
   private final EmployeeRepository employees;
   private final ExclusionRepository exclusions;
   private final ScheduleRepository schedules;
-  private final AutomaticEngine engine;
+  private final ScheduleTimelineService timeline;
+  private final Clock clock;
+  private final com.dutymanager.repository.schedule.HandoverRepository handovers;
+  private final AssignmentProjectionService assignmentProjection;
   private final AutomaticDutyService definitions;
   private final ScheduleAccess access;
+  private final com.dutymanager.repository.schedule.ScheduleRangeRepository ranges;
 
   public LiveScheduleService(
       EmployeeRepository employees,
       ExclusionRepository exclusions,
       ScheduleRepository schedules,
-      AutomaticEngine engine,
+      ScheduleTimelineService timeline,
+      Clock clock,
+      com.dutymanager.repository.schedule.HandoverRepository handovers,
       AutomaticDutyService definitions,
-      ScheduleAccess access) {
+      ScheduleAccess access,
+      AssignmentProjectionService assignmentProjection,
+      com.dutymanager.repository.schedule.ScheduleRangeRepository ranges) {
     this.employees = employees;
     this.exclusions = exclusions;
     this.schedules = schedules;
-    this.engine = engine;
+    this.timeline = timeline;
+    this.clock = clock;
+    this.handovers = handovers;
     this.definitions = definitions;
     this.access = access;
+    this.assignmentProjection = assignmentProjection;
+    this.ranges = ranges;
   }
 
-  private Map<String, List<RotationSlot>> ensureSlots(Duty duty, List<RotationTurn> turns) {
+  private Map<String, List<RotationSlot>> savedSlots(Duty duty) {
     var result = new HashMap<String, List<RotationSlot>>();
-    schedules
-        .slots(duty.id())
-        .forEach(s -> result.computeIfAbsent(s.rotationKey(), k -> new ArrayList<>()).add(s));
-    for (var turn : turns)
-      if (!result.containsKey(turn.key()) && turn.warning() == null)
-        schedules.saveTurn(duty.id(), turn);
-    result.clear();
     schedules
         .slots(duty.id())
         .forEach(s -> result.computeIfAbsent(s.rotationKey(), k -> new ArrayList<>()).add(s));
@@ -56,13 +60,33 @@ public class LiveScheduleService {
 
   @Transactional
   public ScheduleResult schedule(LocalDate from, LocalDate to) {
+    access.lockPlanning();
+    return build(from, to, definitions.catalog());
+  }
+
+  @Transactional
+  public ScheduleResult schedule(long dutyId, LocalDate from, LocalDate to) {
+    DateRangeValidator.validate(from, to);
+    access.lock(dutyId);
+    var duty = access.duty(dutyId);
+    var rule = schedules.rules().get(dutyId);
+    return build(
+        from,
+        to,
+        rule == null
+            ? List.of()
+            : List.of(
+                new AutomaticDuty(
+                    duty, rule, schedules.meetings(dutyId), ranges.find(dutyId).orElseThrow())));
+  }
+
+  private ScheduleResult build(LocalDate from, LocalDate to, List<AutomaticDuty> configs) {
     DateRangeValidator.validate(from, to);
     var result = new ArrayList<WorkOccurrence>();
     var people = employees.findAll();
     var peopleById = new HashMap<Long, Employee>();
     people.forEach(p -> peopleById.put(p.id(), p));
     var holidays = access.holidayDates();
-    var configs = definitions.catalog();
     // Stable lock order for overlapping queries.
     for (var config :
         configs.stream().sorted(Comparator.comparingLong(c -> c.duty().id())).toList()) {
@@ -70,10 +94,25 @@ public class LiveScheduleService {
       access.lock(d.id());
       var r = config.schedule();
       var meetings = schedules.meetings(d.id());
+      var range = ranges.find(d.id()).orElseThrow();
+      var through = range.limit(to);
       var turns =
-          engine.turns(d, r, meetings, people, exclusions.findByDutyId(d.id()), holidays, to, 0);
-      var saved = ensureSlots(d, turns);
-      for (var event : engine.dates(d, r, meetings, to, holidays)) {
+          assignmentProjection
+              .turns(
+                  access.duty(d.id()),
+                  r,
+                  meetings,
+                  people,
+                  exclusions.findByDutyId(d.id()),
+                  holidays,
+                  through)
+              .stream()
+              .filter(range::includes)
+              .map(range::trim)
+              .toList();
+      var saved = savedSlots(d);
+      var handoverData = handovers.find(d.id());
+      for (var event : timeline.dates(d, r, meetings, through, holidays)) {
         var date = event.date();
         if (date != null && (date.isBefore(from) || date.isAfter(to))) continue;
         RotationTurn turn = null;
@@ -87,16 +126,43 @@ public class LiveScheduleService {
             }
         }
         if (turn == null) continue;
+        if (!saved.containsKey(turn.key())) continue;
         var slots = saved.getOrDefault(turn.key(), List.of());
         var assignees =
             slots.stream()
                 .sorted(Comparator.comparingInt(RotationSlot::slotIndex))
                 .map(
                     slot -> {
-                      var e = peopleById.get(slot.employeeId());
+                      var segment =
+                          com.dutymanager.engine.schedule.SlotAssignmentResolver.at(
+                              slot, handoverData, date);
+                      var e = peopleById.get(segment.employeeId());
                       return new WorkAssignee(slot.id(), e.id(), e.employeeNumber(), e.name());
                     })
                 .toList();
+        var segments =
+            slots.stream()
+                .map(
+                    slot ->
+                        com.dutymanager.engine.schedule.SlotAssignmentResolver.at(
+                            slot, handoverData, date))
+                .toList();
+        var segmentStart = turn.start();
+        var segmentEnd = turn.end();
+        boolean segmented =
+            segments.stream()
+                .anyMatch(
+                    com.dutymanager.engine.schedule.SlotAssignmentResolver.Segment::segmented);
+        for (var segment : segments) {
+          if (segment.start() != null
+              && (segmentStart == null || segment.start().isAfter(segmentStart)))
+            segmentStart = segment.start();
+          if (segment.end() != null && (segmentEnd == null || segment.end().isBefore(segmentEnd)))
+            segmentEnd = segment.end();
+        }
+        boolean dateEditable =
+            r.rotationMode() == RotationMode.OCCURRENCE
+                && (date == null || date.isAfter(LocalDate.now(clock)));
         result.add(
             new WorkOccurrence(
                 d.id(),
@@ -105,11 +171,13 @@ public class LiveScheduleService {
                 date,
                 r.rotationMode(),
                 turn.key(),
-                turn.start(),
-                turn.end(),
+                segmentStart,
+                segmentEnd,
                 assignees,
                 slots.isEmpty() ? turn.warning() : null,
-                date != null && holidays.contains(date)));
+                date != null && holidays.contains(date),
+                dateEditable,
+                segmented));
       }
     }
     var overlaps = new HashMap<String, Set<Long>>();
@@ -148,7 +216,9 @@ public class LiveScheduleService {
                           event.periodEnd(),
                           event.assignees(),
                           event.warning() == null ? "同じ日に別の当番も担当しています。" : event.warning(),
-                          event.holiday());
+                          event.holiday(),
+                          event.dateEditable(),
+                          event.segmented());
                 })
             .sorted(
                 Comparator.comparing(

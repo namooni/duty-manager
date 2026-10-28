@@ -47,9 +47,9 @@ public final class AutomaticResponses {
     }
   }
 
-  public record Preview(String token, List<Turn> turns) {
+  public record Preview(String token, List<Turn> turns, ScheduleRange range) {
     public static Preview from(RotationPreview p) {
-      return new Preview(p.token(), p.turns().stream().map(Turn::from).toList());
+      return new Preview(p.token(), p.turns().stream().map(Turn::from).toList(), p.range());
     }
   }
 
@@ -59,12 +59,14 @@ public final class AutomaticResponses {
     }
   }
 
-  public record DutyView(DutyResponse duty, Rule schedule, List<MeetingView> meetings) {
+  public record DutyView(
+      DutyResponse duty, Rule schedule, List<MeetingView> meetings, ScheduleRange range) {
     public static DutyView from(AutomaticDuty d) {
       return new DutyView(
           DutyResponse.from(d.duty()),
           Rule.from(d.schedule()),
-          d.meetings().stream().map(MeetingView::from).toList());
+          d.meetings().stream().map(MeetingView::from).toList(),
+          d.range());
     }
   }
 
@@ -85,7 +87,9 @@ public final class AutomaticResponses {
       LocalDate periodEnd,
       List<Assignee> assignees,
       String warning,
-      boolean holiday) {
+      boolean holiday,
+      boolean dateEditable,
+      boolean segmented) {
     static Occurrence from(WorkOccurrence o) {
       return new Occurrence(
           o.dutyId(),
@@ -98,7 +102,9 @@ public final class AutomaticResponses {
           o.periodEnd(),
           o.assignees().stream().map(Assignee::from).toList(),
           o.warning(),
-          o.holiday());
+          o.holiday(),
+          o.dateEditable(),
+          o.segmented());
     }
   }
 

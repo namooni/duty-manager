@@ -12,12 +12,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class SqlScheduleRepository implements ScheduleRepository {
   private final JdbcTemplate jdbc;
+  private final com.dutymanager.common.jdbc.JdbcPlanningLock planningLock;
   private final JdbcInsertSupport inserts;
   private final ScheduleMapper mapper;
 
   public SqlScheduleRepository(
-      JdbcTemplate jdbc, JdbcInsertSupport inserts, ScheduleMapper mapper) {
+      JdbcTemplate jdbc,
+      JdbcInsertSupport inserts,
+      ScheduleMapper mapper,
+      com.dutymanager.common.jdbc.JdbcPlanningLock planningLock) {
     this.jdbc = jdbc;
+    this.planningLock = planningLock;
     this.inserts = inserts;
     this.mapper = mapper;
   }
@@ -101,16 +106,21 @@ public class SqlScheduleRepository implements ScheduleRepository {
         rs.getInt("slot_index"),
         rs.getLong("employee_id"),
         rs.getDate("period_start") == null ? null : rs.getDate("period_start").toLocalDate(),
-        rs.getDate("period_end") == null ? null : rs.getDate("period_end").toLocalDate());
+        rs.getDate("period_end") == null ? null : rs.getDate("period_end").toLocalDate(),
+        rs.getBoolean("manual_override"));
   }
 
   public List<RotationSlot> slots(long id) {
     return jdbc.query(
-        "SELECT * FROM duty_rotation_slots WHERE duty_id=? ORDER BY id", this::map, id);
+        "SELECT * FROM duty_rotation_slots WHERE duty_id=? AND retired=FALSE ORDER BY id",
+        this::map,
+        id);
   }
 
   public Optional<RotationSlot> slot(long id) {
-    return jdbc.query("SELECT * FROM duty_rotation_slots WHERE id=?", this::map, id).stream()
+    return jdbc
+        .query("SELECT * FROM duty_rotation_slots WHERE id=? AND retired=FALSE", this::map, id)
+        .stream()
         .findFirst();
   }
 
@@ -137,7 +147,10 @@ public class SqlScheduleRepository implements ScheduleRepository {
         slot.employeeId(),
         employeeId,
         reason);
-    jdbc.update("UPDATE duty_rotation_slots SET employee_id=? WHERE id=?", employeeId, slot.id());
+    jdbc.update(
+        "UPDATE duty_rotation_slots SET employee_id=?, manual_override=TRUE WHERE id=?",
+        employeeId,
+        slot.id());
   }
 
   public List<RotationChange> changes(long id) {
@@ -151,6 +164,7 @@ public class SqlScheduleRepository implements ScheduleRepository {
   }
 
   public void saveHoliday(Holiday h) {
+    planningLock.lock();
     if (jdbc.update(
             "UPDATE company_holidays SET name=? WHERE holiday_date=?",
             h.name(),
@@ -163,6 +177,7 @@ public class SqlScheduleRepository implements ScheduleRepository {
   }
 
   public void deleteHoliday(LocalDate date) {
+    planningLock.lock();
     jdbc.update("DELETE FROM company_holidays WHERE holiday_date=?", java.sql.Date.valueOf(date));
   }
 }

@@ -19,7 +19,14 @@ export function normalizeApiError(error: unknown): ApiError {
       : new ApiError('NETWORK_ERROR', 'サーバーに接続できません。起動状態を確認してください。');
   }
   const {status, data} = error.response;
-  const body: unknown = data;
+  let body: unknown = data;
+  if (Object.prototype.toString.call(data) === '[object ArrayBuffer]' || ArrayBuffer.isView(data)) {
+    try {
+      body = JSON.parse(new TextDecoder().decode(data));
+    } catch {
+      body = null;
+    }
+  }
   const message =
     typeof body === 'object' &&
     body !== null &&

@@ -1,8 +1,11 @@
 import {dutiesApi} from '@/apis/duties/duties.api';
 import {toDuty, toDutyInputDto, toExclusion, toPreview} from './duties.mapper';
-import type {DutyDraft, DutyInput, ExclusionInput} from './duties.domain';
+import type {DutyDetailsInput, DutyDraft, DutyInput, ExclusionInput} from './duties.domain';
 const toDraftDto = (draft: DutyDraft) => ({...draft, duty: toDutyInputDto(draft.duty)});
 export const dutiesRepository = {
+  find: async (id: number, signal?: AbortSignal) => toDuty(await dutiesApi.find(id, signal)),
+  updateDetails: (id: number, input: DutyDetailsInput) => dutiesApi.updateDetails(id, {...input}),
+  remove: (id: number) => dutiesApi.remove(id),
   previewDraft: async (draft: DutyDraft) =>
     toPreview(await dutiesApi.previewDraft(toDraftDto(draft))),
   createConfirmed: (draft: DutyDraft, token: string) =>

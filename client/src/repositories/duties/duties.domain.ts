@@ -41,3 +41,10 @@ export type Period = Readonly<{
   warning: string | null;
 }>;
 export type Preview = Readonly<{token: string; periods: readonly Period[]}>;
+
+export type DutyDetailsInput = Readonly<{
+  name: string;
+  description: string;
+  expectedName: string;
+  expectedDescription: string;
+}>;

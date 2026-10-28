@@ -22,7 +22,7 @@ export function DutyParticipants({form}: {form: AutomaticDutyCreation['duty']}) 
         {form.choices.map(person => (
           <S.Choice key={person.id} $selected={person.selected}>
             <U.Checkbox checked={person.selected} onChange={() => form.toggleMember(person.id)} />
-            <U.Text>{person.name}</U.Text>
+            <U.Text>{person.name + (person.active ? '' : '（無効・順序を保持）')}</U.Text>
             <U.Text as="small">
               {form.form.strategy === 'CUSTOM' && person.selected ? person.order + '番 · ' : ''}
               {person.employeeNumber}

@@ -21,18 +21,21 @@ public class MeetingScheduleService {
   private final AssignmentEngine periodEngine;
   private final Clock clock;
   private final ScheduleAccess access;
+  private final com.dutymanager.repository.schedule.ScheduleRangeRepository ranges;
 
   public MeetingScheduleService(
       ExclusionRepository exclusions,
       ScheduleRepository schedules,
       AssignmentEngine periodEngine,
       Clock clock,
-      ScheduleAccess access) {
+      ScheduleAccess access,
+      com.dutymanager.repository.schedule.ScheduleRangeRepository ranges) {
     this.exclusions = exclusions;
     this.schedules = schedules;
     this.periodEngine = periodEngine;
     this.clock = clock;
     this.access = access;
+    this.ranges = ranges;
   }
 
   @Transactional
@@ -47,8 +50,8 @@ public class MeetingScheduleService {
             .findFirst()
             .orElseThrow(() -> new NotFoundException("開催回が見つかりません。"));
     require(
-        current.date() == null || !current.date().isBefore(LocalDate.now(clock)),
-        "過去の開催日は変更できません。");
+        current.date() == null || current.date().isAfter(LocalDate.now(clock)), "過去の開催日は変更できません。");
+    require(current.date() == null, "開催日の変更は、変更内容の確認画面から適用してください。");
     require(date != null, "開催日を選択してください。");
     require(
         !date.isBefore(LocalDate.now(clock)) && !date.isBefore(d.anchorDate()),
@@ -67,7 +70,11 @@ public class MeetingScheduleService {
                     periodEngine.excluded(
                         slot.employeeId(), date, date, exclusions.findByDutyId(id))),
         "担当者の対象外期間に当たります。先に担当者を変更してください。");
+    var range = ranges.find(id).orElseThrow();
+    require(
+        !date.isAfter(range.plannedThrough())
+            && (range.endDate() == null || !date.isAfter(range.endDate())),
+        "担当者を決めた期間外です。先に担当予定を追加してください。");
     schedules.updateMeeting(id, sequence, date);
-    if (sequence == meetings.size() - 1) schedules.saveMeeting(id, sequence + 1, null);
   }
 }

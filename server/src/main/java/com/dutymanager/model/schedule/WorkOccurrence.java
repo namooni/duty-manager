@@ -14,4 +14,6 @@ public record WorkOccurrence(
     LocalDate periodEnd,
     List<WorkAssignee> assignees,
     String warning,
-    boolean holiday) {}
+    boolean holiday,
+    boolean dateEditable,
+    boolean segmented) {}

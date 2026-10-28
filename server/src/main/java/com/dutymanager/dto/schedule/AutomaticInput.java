@@ -12,13 +12,17 @@ public record AutomaticInput(
     @NotNull @Valid ScheduleInput schedule,
     @NotNull @Size(max = 200) List<LocalDate> dates,
     @Min(1) @Max(2147483647) long seed,
-    @Min(0) @Max(200) Integer previewCount) {
+    @Min(0) @Max(200) Integer previewCount,
+    LocalDate endDate,
+    @NotNull LocalDate plannedThrough) {
   public AutomaticDefinition toDefinition() {
     return new AutomaticDefinition(
         duty.toDefinition(),
         schedule.toRule(),
         new java.util.ArrayList<>(dates),
         seed,
-        previewCount == null ? 0 : previewCount);
+        previewCount == null ? 0 : previewCount,
+        endDate,
+        plannedThrough);
   }
 }

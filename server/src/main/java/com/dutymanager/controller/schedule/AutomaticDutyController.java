@@ -21,18 +21,21 @@ public class AutomaticDutyController {
   private final MeetingScheduleService meetings;
   private final RotationSlotService slots;
   private final CompanyCalendarService calendar;
+  private final ScheduleAllocationService allocations;
 
   public AutomaticDutyController(
       AutomaticDutyService service,
       LiveScheduleService live,
       MeetingScheduleService meetings,
       RotationSlotService slots,
-      CompanyCalendarService calendar) {
+      CompanyCalendarService calendar,
+      ScheduleAllocationService allocations) {
     this.service = service;
     this.live = live;
     this.meetings = meetings;
     this.slots = slots;
     this.calendar = calendar;
+    this.allocations = allocations;
   }
 
   @PostMapping("/preview")
@@ -56,6 +59,11 @@ public class AutomaticDutyController {
     return Result.from(live.schedule(query.from(), query.to()));
   }
 
+  @PostMapping("/{id}/schedule")
+  public Result dutySchedule(@PathVariable long id, @Valid @RequestBody ScheduleQuery query) {
+    return Result.from(live.schedule(id, query.from(), query.to()));
+  }
+
   @PutMapping("/{id}/meetings/{sequence}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void meeting(
@@ -66,7 +74,28 @@ public class AutomaticDutyController {
   @PatchMapping("/slots/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void replace(@PathVariable long id, @Valid @RequestBody ReplaceInput input) {
-    slots.replace(id, input.employeeId(), input.reason());
+    slots.replace(id, input.employeeId(), input.reason(), input.from());
+  }
+
+  @PostMapping("/{id}/allocations/preview")
+  public Preview allocationPreview(
+      @PathVariable long id, @Valid @RequestBody AllocationExtensionInput input) {
+    return Preview.from(allocations.preview(id, input.command()));
+  }
+
+  @PostMapping("/{id}/allocations")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void allocate(
+      @PathVariable long id, @Valid @RequestBody AllocationExtensionInput.Confirm input) {
+    allocations.confirm(id, input.input().command(), input.token());
+  }
+
+  @GetMapping("/slots/{id}/choices")
+  public List<com.dutymanager.dto.employee.EmployeeResponse> choices(
+      @PathVariable long id, @RequestParam(required = false) LocalDate from) {
+    return slots.choices(id, from).stream()
+        .map(com.dutymanager.dto.employee.EmployeeResponse::from)
+        .toList();
   }
 
   @GetMapping("/slots/{id}/changes")

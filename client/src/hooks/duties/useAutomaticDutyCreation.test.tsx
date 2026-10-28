@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('automatic duty creation', () => {
-  it('shows a whole cycle with undecided meeting dates without an allocation end date', async () => {
+  it('sends an explicit allocation window and preserves the requested undecided meeting count', async () => {
     const saved = vi.fn(),
       closed = vi.fn();
     const {result} = renderHook(() =>
@@ -47,7 +47,9 @@ describe('automatic duty creation', () => {
     });
     expect(result.current.review?.preview.turns).toHaveLength(5);
     const draft = vi.mocked(automaticRepository.preview).mock.calls[0][0];
-    expect(draft.dates).toEqual([]);
+    expect(draft.dates).toEqual([null]);
+    expect(draft.plannedThrough).toBe('2026-12-31');
+    expect(draft.endDate).toBeNull();
     expect(draft).not.toHaveProperty('to');
     expect(draft).not.toHaveProperty('from');
     expect(automaticRepository.activate).not.toHaveBeenCalled();
@@ -120,21 +122,22 @@ describe('automatic duty creation', () => {
   });
 });
 
-it('requests twelve preview turns without changing the reviewed random seed', async () => {
+it('validates the operating end separately from the allocation window', async () => {
   const {result} = renderHook(() =>
     useAutomaticDutyCreation(people, '2026-11-20', vi.fn(), vi.fn()),
   );
-  act(() => result.current.duty.update('name', '定例会'));
-  await act(async () => {
-    await result.current.preview();
+  act(() => {
+    result.current.duty.update('name', '朝会');
+    result.current.setHasEnd(true);
+    result.current.setEndDate('2026-11-30');
   });
-  const seed = result.current.review!.draft.seed;
-  act(() => result.current.setPreviewCount(12));
-  expect(result.current.canStart).toBe(false);
-  await act(async () => {
-    await result.current.preview();
+  await act(async () => result.current.preview());
+  expect(automaticRepository.preview).not.toHaveBeenCalled();
+  expect(result.current.error).toContain('当番の終了日まで');
+  act(() => result.current.setPlannedThrough('2026-11-30'));
+  await act(async () => result.current.preview());
+  expect(result.current.review?.draft).toMatchObject({
+    endDate: '2026-11-30',
+    plannedThrough: '2026-11-30',
   });
-  expect(result.current.review!.draft.previewCount).toBe(12);
-  expect(result.current.review!.draft.seed).toBe(seed);
-  expect(result.current.canStart).toBe(true);
 });
