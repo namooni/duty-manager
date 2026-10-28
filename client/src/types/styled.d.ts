@@ -5,6 +5,7 @@ declare module 'styled-components' {
     palette: Theme['palette'];
     semantic: Theme['semantic'];
     radius: Theme['radius'];
+    shadow: Theme['shadow'];
     spacing: Theme['spacing'];
     typography: Theme['typography'];
   }

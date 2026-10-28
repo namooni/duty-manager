@@ -120,3 +120,23 @@ describe('duty view-model', () => {
     expect(second.result.current.from).toBe('2026-10-28');
   });
 });
+
+it('keeps member rows mounted in the view model during a slow status-change reload', async () => {
+  vi.mocked(employeesRepository.setActive).mockResolvedValue();
+  const {result} = renderHook(() => useDutyManager(false), {wrapper});
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  let resolve!: (people: (typeof employee)[]) => void;
+  vi.mocked(employeesRepository.list).mockImplementationOnce(
+    () =>
+      new Promise(yes => {
+        resolve = yes;
+      }),
+  );
+  await act(async () => result.current.toggleActive(employee));
+  expect(result.current.loading).toBe(false);
+  expect(result.current.refreshing).toBe(true);
+  expect(result.current.employees[0].id).toBe(1);
+  await act(async () => resolve([{...employee, active: false}]));
+  await waitFor(() => expect(result.current.refreshing).toBe(false));
+  expect(result.current.employees[0].active).toBe(false);
+});

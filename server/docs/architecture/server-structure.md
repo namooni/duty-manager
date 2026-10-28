@@ -74,3 +74,11 @@ Controller → Service → Repository interface → JDBC 구현
 ## 실행일과 자동 순환
 
 현재 신규 당번 생성은 [자동 당번 구조](automatic-duties.md)를 따른다. 기존 PlanningService의 preview/confirm은 호환용이다. controller/service/dto/model/repository/mapper 아래 schedule 기능 패키지를 추가하며, 순수 계산은 engine/schedule과 engine/rotation에 둔다.
+
+## 担当変更・状態復元
+
+AssignmentChangeService が検討・競合検証・承認を処理し、AssignmentProjectionService がルールバージョンから担当を投影する。RotationAllocator は元の名簿と未消費キューを保持する純粋計算。AssignmentPlanRepository が版・担当枠・監査を保存する。計画処理は JdbcPlanningLock を最初に取得する。HTTP DTO は内部コマンド・検討モデルと分ける。[実装仕様](../../../docs/policies/assignment-change-implementation.md) を参照。
+
+## 現在担当の引継ぎ
+
+CurrentHandoverService が現在の実担当と参加除外時の引継ぎ検証を担当する。SlotAssignmentResolver は日時別の担当・区間を計算する純粋関数で、一覧と代理変更が共有する。AssignmentChangeService が名簿適用日・順番消費・未来割当と一緒に確定し、HandoverRepository が保存する。[実装仕様](../../../docs/policies/current-assignment-handover.md)を参照。

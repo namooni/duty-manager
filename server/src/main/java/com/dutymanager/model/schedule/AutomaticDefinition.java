@@ -9,10 +9,17 @@ public record AutomaticDefinition(
     ScheduleRule schedule,
     List<LocalDate> dates,
     long seed,
-    int previewCount) {
+    int previewCount,
+    LocalDate endDate,
+    LocalDate plannedThrough) {
   public AutomaticDefinition(
       DutyDefinition duty, ScheduleRule schedule, List<LocalDate> dates, long seed) {
-    this(duty, schedule, dates, seed, 0);
+    this(duty, schedule, dates, seed, 0, null, null);
+  }
+
+  public AutomaticDefinition(
+      DutyDefinition duty, ScheduleRule schedule, List<LocalDate> dates, long seed, int count) {
+    this(duty, schedule, dates, seed, count, null, null);
   }
 
   public AutomaticDefinition {

@@ -18,9 +18,10 @@ export interface ScheduleRuleDto {
 export interface AutomaticDraftDto {
   duty: DutyInputDto;
   schedule: ScheduleRuleDto;
-  dates: string[];
+  dates: (string | null)[];
   seed: number;
-  previewCount?: number;
+  endDate?: string | null;
+  plannedThrough?: string;
 }
 export interface RotationTurnDto {
   key: string;
@@ -30,14 +31,24 @@ export interface RotationTurnDto {
   assignees: EmployeeDto[];
   warning: string | null;
 }
+export interface ScheduleRangeDto {
+  endDate: string | null;
+  plannedThrough: string;
+}
+export interface AllocationExtensionDto {
+  plannedThrough: string;
+  additionalMeetings: number;
+}
 export interface RotationPreviewDto {
   token: string;
   turns: RotationTurnDto[];
+  range?: ScheduleRangeDto | null;
 }
 export interface AutomaticDutyDto {
   duty: DutyDto;
   schedule: ScheduleRuleDto;
   meetings: {sequence: number; date: string | null}[];
+  range?: ScheduleRangeDto | null;
 }
 export interface WorkAssigneeDto {
   slotId: number;
@@ -57,6 +68,8 @@ export interface WorkOccurrenceDto {
   assignees: WorkAssigneeDto[];
   warning: string | null;
   holiday: boolean;
+  dateEditable?: boolean;
+  segmented?: boolean;
 }
 export interface ScheduleResultDto {
   occurrences: WorkOccurrenceDto[];

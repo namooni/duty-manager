@@ -55,3 +55,16 @@ src/
 
 utils는 외부 상태를 읽지 않는 순수 함수다. 예: 입력 날짜 포맷팅, 날짜 간격 검증.
 libs는 외부 환경과 접촉한다. 예: 현재 Tokyo 날짜를 얻는 clock, 향후 SDK·스토리지 연동.
+
+## 예정 목록 검색 상태
+
+- stores/duties/scheduleFilter.store.ts: 업무 ID·담당자 ID·검색어만 보관하는 UI 상태.
+- hooks/duties/useScheduleFilters.ts: 직원 선택지·필터 결합·기존 형식 내역 필터.
+- utils/schedule/scheduleFilters.ts: 이름·사번 정규화 및 동일 담당자 조건의 순수 판정.
+- useAutomaticSchedule은 필터 적용 후 기간별로 묶은 목록을 반환하며 원본 scheduleData는 전체 홈 요약용으로 유지한다.
+
+## 取得結果を維持した再取得
+
+useRetainedRequest（hooks/common）は安定したloader、問い合わせキー、更新version、enabledを受け取り、AbortControllerとloading／refreshing／エラーを共通管理する。成功済みの同一キーは空配列も含めて再取得中に保持する。キー変更時は古い結果を返さない。サーバーデータはフック内に留め、Zustandには保存しない。
+
+useDutyManager、useDutyCatalog、useAutomaticSchedule、useDutyDetails、useDutyOverviewで共有する。各機能フックは問い合わせ条件・repository呼び出し・表示用の変換を担当する。初回loadingだけ一覧を置き換え、refreshingでは既存UIを維持する。失敗時はエラーと既存結果を併せて返す。成功通知は共通レイアウトのNoticeToastから表示する。

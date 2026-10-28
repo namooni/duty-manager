@@ -1,8 +1,15 @@
 import {useState} from 'react';
 import type {DutyInput} from '@/repositories/duties/duties.domain';
 import type {Employee} from '@/repositories/employees/employees.domain';
-export function useDutyForm(employees: readonly Employee[], today: string) {
-  const active = employees.filter(employee => employee.active);
+export function useDutyForm(
+  employees: readonly Employee[],
+  today: string,
+  initial?: DutyInput,
+  rejoinBefore: Readonly<Record<number, number>> = {},
+) {
+  const active = employees.filter(
+    employee => employee.active || !!initial?.memberIds.includes(employee.id),
+  );
   const empty = (): DutyInput => ({
     name: '',
     description: '',
@@ -13,24 +20,29 @@ export function useDutyForm(employees: readonly Employee[], today: string) {
     assigneeCount: 1,
     memberIds: [],
   });
-  const [values, setValues] = useState<DutyInput>(empty);
+  const [values, setValues] = useState<DutyInput>(() => initial ?? empty());
   // null means all current active employees, including employees loaded asynchronously.
-  const [selection, setSelection] = useState<readonly number[] | null>(null);
+  const [selection, setSelection] = useState<readonly number[] | null>(initial?.memberIds ?? null);
   const memberIds =
     selection === null
       ? active.map(e => e.id)
       : selection.filter(id => active.some(e => e.id === id));
   const form = {...values, memberIds};
   function update<K extends keyof DutyInput>(key: K, value: DutyInput[K]) {
-    if (key === 'strategy' && value !== values.strategy) {
+    if (!initial && key === 'strategy' && value !== values.strategy) {
       setSelection(value === 'CUSTOM' ? [] : null);
     }
     setValues(previous => ({...previous, [key]: value}));
   }
   function toggleMember(id: number) {
-    setSelection(
-      memberIds.includes(id) ? memberIds.filter(member => member !== id) : [...memberIds, id],
-    );
+    setSelection(previous => {
+      const current = (previous ?? active.map(person => person.id)).filter(member =>
+        active.some(person => person.id === member),
+      );
+      if (current.includes(id)) return current.filter(member => member !== id);
+      const at = current.indexOf(rejoinBefore[id]);
+      return at < 0 ? [...current, id] : [...current.slice(0, at), id, ...current.slice(at)];
+    });
   }
   function input(): DutyInput {
     if (!form.name.trim()) throw new Error('当番の名前を入力してください。');

@@ -42,20 +42,24 @@ export function Modal({
           <Text>×</Text>
         </Button>
       </PanelHead>
-      <PanelBody>{children}</PanelBody>
+      <Body>{children}</Body>
     </Dialog>
   );
 }
 const Dialog = styled.dialog`
   border: 1px solid ${({theme}) => theme.semantic.borderDefault};
-  border-radius: ${({theme}) => theme.radius.lg};
+  border-radius: ${({theme}) => theme.radius.md};
   padding: 0;
   width: min(620px, calc(100vw - 32px));
   max-height: 88vh;
-  box-shadow: 0 24px 100px #1a2e4b30;
+  font: inherit;
+  box-shadow: ${({theme}) => theme.shadow.subtle};
   color: ${({theme}) => theme.semantic.textPrimary};
   &::backdrop {
-    background: #15283880;
-    backdrop-filter: blur(3px);
+    background: ${({theme}) => theme.palette.modalBackdrop};
   }
 `;
+
+const Body = styled(PanelBody)({
+  '& [role="alert"], & [role="status"]': {margin: 0},
+});

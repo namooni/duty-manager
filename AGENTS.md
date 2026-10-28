@@ -4,7 +4,7 @@
 - Pages and UI components render hook results and connect events to hook handlers.
 - HTTP transport belongs in `client/src/apis`; hooks call repositories, never API modules directly.
 - The Java server is authoritative for recurrence, assignment, validation and history.
-- Keep execution dates separate from rotation periods. New duties preview a full participant cycle and continue automatically; do not reintroduce a required allocation end date or repeated manual confirmation.
+- Keep execution dates separate from rotation periods. Creation requires an explicit assignment window, separately from the optional duty operating end. Queries never create assignments. Preview and confirm extensions from duty details; continue the existing rotation and preserve saved/manual assignments.
 - Preserve the meeting sequence and assignee when an explicitly scheduled meeting date changes.
 - Preserve confirmed assignments when rules change. Never silently rebuild published schedules.
 - Keep mail and Pepper integration out of the initial implementation.
@@ -21,6 +21,8 @@
 - 작업 완료 전 중복 로직, 공통 코드 재사용, 계층 간 의존성을 확인한다. 공통 코드 변경 시 모든 사용처의 동작과 관련 문서 영향을 함께 점검한다.
 
 ## Frontend rules
+
+- 시각 디자인은 [Neutral Workplace 정책](client/docs/policies/design-system.md)을 우선하며, 컴포넌트 사용은 [카탈로그](client/docs/architecture/design-system.md)를 따른다. Tailwind 예시는 참고용이고 구현은 styled-components를 유지한다.
 
 - 작업 완료 시 AGENTS.md와 관련 docs의 영향을 확인하고, 구현과 어긋나는 문서는 같은 작업에서 갱신한다.
 - UI는 `client/src/components/ui/`의 디자인 시스템을 우선 사용한다. 텍스트는 Text, 버튼은 Button/BaseButton, 입력은 Input/Select/Textarea/Checkbox, 레이아웃은 Flex를 사용한다.
@@ -82,3 +84,11 @@ Page → custom hook → repository → domain API → apiClient → Java server
 - docs/architecture.md: 모노레포·서버·인프라·향후 연동.
 - `README.md`: 프로젝트 실행·테스트 안내.
 - 현재 구현 설명은 실제 파일과 도입한 기술에 맞춘다. 미구현 설계는 상태를 목표 설계/기준안으로 명시하고 현재 구현과의 차이를 적는다. 새 문서는 .md 확장자를 사용하고 위 위치에 배치한다.
+
+- Current participant removal offers finish-current-period or hand over immediately from today. Keep roster membership separate from current confirmed ownership, preserve assignments before today and rotation boundaries, and consume handover recipients in the next automatic queue only after reviewed confirmation. Do not introduce general period editing or ad hoc daily substitution.
+
+Current calendar assignment changes from schedule/home must use the same reviewed handover and automatic-queue advancement as participant editing. Preserve yesterday and earlier; roster removal is not required. The single-slot replacement endpoint must not bypass this workflow.
+
+Rejoining an excluded original owner during the same calendar period restores that owner from today, restores their position before the handover recipient, and returns the displaced recipient to the next automatic turn. Show the restoration in the shared review; preserve earlier days and protected assignments. Do not restore expired periods.
+
+Excel exports must reuse the authoritative saved schedule, preserve actual execution dates, handover segments and undated meetings, and never allocate or mutate assignments. Share workbook styles and binary transport/error handling across layouts.

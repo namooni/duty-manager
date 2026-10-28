@@ -7,8 +7,10 @@ export function useAppNavigation() {
   const page: Page =
     location.pathname === '/employees'
       ? 'employees'
-      : location.pathname === '/duties'
+      : location.pathname === '/duties' || location.pathname.startsWith('/duties/')
         ? 'duties'
-        : 'schedule';
+        : location.pathname === '/schedule'
+          ? 'schedule'
+          : 'home';
   return {page, setPage: (next: Page) => navigate(pagePaths[next])};
 }

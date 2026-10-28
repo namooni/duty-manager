@@ -7,7 +7,7 @@ const Checkbox = styled.input.attrs({type: 'checkbox'})`
   outline: 1px solid transparent;
   outline-offset: 2px;
   &:focus-visible {
-    outline-color: ${({theme}) => theme.palette.black};
+    outline-color: ${({theme}) => theme.semantic.focus};
   }
 `;
 export default Checkbox;

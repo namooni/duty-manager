@@ -9,4 +9,16 @@ public record RotationSlot(
     int slotIndex,
     long employeeId,
     LocalDate periodStart,
-    LocalDate periodEnd) {}
+    LocalDate periodEnd,
+    boolean manualOverride) {
+  public RotationSlot(
+      long id,
+      long dutyId,
+      String rotationKey,
+      int slotIndex,
+      long employeeId,
+      LocalDate periodStart,
+      LocalDate periodEnd) {
+    this(id, dutyId, rotationKey, slotIndex, employeeId, periodStart, periodEnd, false);
+  }
+}

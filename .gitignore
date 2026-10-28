@@ -9,3 +9,5 @@ server/build/
 .idea/
 .vscode/
 *.tsbuildinfo
+
+/docs

@@ -11,3 +11,8 @@ export {default as Textarea} from './form/Textarea';
 export {default as Checkbox} from './form/Checkbox';
 export {Modal} from './dialog/Modal';
 export * from './surfaces/Surfaces';
+
+export {ItemActionRow} from './layouts/ItemActionRow';
+export {InlineActions} from './layouts/InlineActions';
+
+export {NoticeToast} from './feedback/NoticeToast';
