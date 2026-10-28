@@ -11,3 +11,5 @@ server/build/
 *.tsbuildinfo
 
 /docs
+*.xlsx
+~$*
