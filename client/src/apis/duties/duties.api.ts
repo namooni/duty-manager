@@ -1,5 +1,6 @@
 import apiClient from '@/apis/apiClient';
 import type {
+  DutyDetailsInputDto,
   DutyDraftDto,
   DutyDto,
   DutyInputDto,
@@ -9,6 +10,14 @@ import type {
   ConfirmInputDto,
 } from '@/repositories/duties/duties.dto';
 export const dutiesApi = {
+  find: async (id: number, signal?: AbortSignal) =>
+    (await apiClient.get<DutyDto>('/duties/' + id, {signal})).data,
+  updateDetails: async (id: number, input: DutyDetailsInputDto) => {
+    await apiClient.patch('/duties/' + id, input);
+  },
+  remove: async (id: number) => {
+    await apiClient.delete('/duties/' + id);
+  },
   previewDraft: async (draft: DutyDraftDto) =>
     (await apiClient.post<PreviewDto>('/duties/preview', draft)).data,
   createConfirmed: async (draft: DutyDraftDto, token: string) =>

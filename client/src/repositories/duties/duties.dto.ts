@@ -48,3 +48,10 @@ export interface ConfirmInputDto {
   to: string;
   token: string;
 }
+
+export type DutyDetailsInputDto = Readonly<{
+  name: string;
+  description: string;
+  expectedName: string;
+  expectedDescription: string;
+}>;

@@ -19,10 +19,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JdbcDutyRepository implements DutyRepository {
   private final JdbcTemplate jdbc;
+  private final com.dutymanager.common.jdbc.JdbcPlanningLock planningLock;
   private final JdbcInsertSupport inserts;
 
-  public JdbcDutyRepository(JdbcTemplate jdbc, JdbcInsertSupport inserts) {
+  public JdbcDutyRepository(
+      JdbcTemplate jdbc,
+      JdbcInsertSupport inserts,
+      com.dutymanager.common.jdbc.JdbcPlanningLock planningLock) {
     this.jdbc = jdbc;
+    this.planningLock = planningLock;
     this.inserts = inserts;
   }
 
@@ -65,6 +70,7 @@ public class JdbcDutyRepository implements DutyRepository {
   }
 
   public long save(DutyDefinition input, Long randomSeed) {
+    planningLock.lock();
     long id =
         inserts.insert(
             "INSERT INTO"
@@ -87,7 +93,51 @@ public class JdbcDutyRepository implements DutyRepository {
     return id;
   }
 
+  public void updateDetails(long id, String name, String description) {
+    jdbc.update("UPDATE duties SET name=?, description=? WHERE id=?", name, description, id);
+  }
+
+  public void delete(long id) {
+    jdbc.update("DELETE FROM assignment_plan_change_items WHERE duty_id=?", id);
+    jdbc.update(
+        "DELETE FROM duty_assignment_plan_members WHERE plan_id IN (SELECT id FROM"
+            + " duty_assignment_plans WHERE duty_id=?)",
+        id);
+    jdbc.update("DELETE FROM duty_assignment_plans WHERE duty_id=?", id);
+    jdbc.update("DELETE FROM duty_schedule_ranges WHERE duty_id=?", id);
+    jdbc.update(
+        "DELETE FROM duty_slot_handovers WHERE rotation_slot_id IN (SELECT id FROM"
+            + " duty_rotation_slots WHERE duty_id=?)",
+        id);
+    jdbc.update("DELETE FROM duty_schedule_date_changes WHERE duty_id=?", id);
+    jdbc.update(
+        "DELETE FROM duty_rotation_changes WHERE rotation_slot_id IN (SELECT id FROM"
+            + " duty_rotation_slots WHERE duty_id=?)",
+        id);
+    jdbc.update(
+        "DELETE FROM assignment_changes WHERE assignment_id IN (SELECT id FROM assignments WHERE"
+            + " duty_id=?)",
+        id);
+    // Fixed table names, in foreign-key order. The service holds the duty row lock.
+    for (String table :
+        List.of(
+            "duty_rotation_slots",
+            "duty_meetings",
+            "duty_schedules",
+            "assignments",
+            "exclusions",
+            "duty_members")) {
+      jdbc.update("DELETE FROM " + table + " WHERE duty_id=?", id);
+    }
+    jdbc.update("DELETE FROM duties WHERE id=?", id);
+  }
+
+  public void lockPlanning() {
+    planningLock.lock();
+  }
+
   public boolean lockById(long id) {
+    planningLock.lock();
     return !jdbc.queryForList("SELECT id FROM duties WHERE id=? FOR UPDATE", Long.class, id)
         .isEmpty();
   }

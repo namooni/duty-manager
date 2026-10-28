@@ -3,6 +3,7 @@ package com.dutymanager.service.duty;
 import static com.dutymanager.common.validation.Checks.require;
 
 import com.dutymanager.common.time.DateRangeValidator;
+import com.dutymanager.exception.ConflictException;
 import com.dutymanager.exception.NotFoundException;
 import com.dutymanager.model.duty.Duty;
 import com.dutymanager.model.duty.DutyDefinition;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DutyService {
   private final EmployeeRepository employees;
+  private final com.dutymanager.service.schedule.AssignmentProjectionService assignmentProjection;
   private final DutyRepository duties;
   private final ExclusionRepository exclusions;
   private final AssignmentRepository assignments;
@@ -36,13 +38,15 @@ public class DutyService {
       ExclusionRepository exclusions,
       AssignmentRepository assignments,
       Clock clock,
-      com.dutymanager.repository.schedule.ScheduleRepository schedules) {
+      com.dutymanager.repository.schedule.ScheduleRepository schedules,
+      com.dutymanager.service.schedule.AssignmentProjectionService assignmentProjection) {
     this.employees = employees;
     this.duties = duties;
     this.exclusions = exclusions;
     this.assignments = assignments;
     this.clock = clock;
     this.schedules = schedules;
+    this.assignmentProjection = assignmentProjection;
   }
 
   @Transactional
@@ -52,6 +56,7 @@ public class DutyService {
 
   @Transactional
   public long create(DutyDefinition input, Long randomSeed) {
+    duties.lockPlanning();
     validateDefinition(input);
     return duties.save(input, randomSeed);
   }
@@ -91,6 +96,29 @@ public class DutyService {
     exclusions.save(dutyId, input);
   }
 
+  @Transactional
+  public void delete(long id) {
+    lockDuty(id);
+    duties.delete(id);
+  }
+
+  @Transactional(readOnly = true)
+  public Duty findById(long id) {
+    var d = getDuty(id);
+    return assignmentProjection.current(
+        d, schedules.rules().get(id), schedules.meetings(id), LocalDate.now(clock));
+  }
+
+  @Transactional
+  public void updateDetails(
+      long id, String name, String description, String expectedName, String expectedDescription) {
+    lockDuty(id);
+    var current = getDuty(id);
+    if (!current.name().equals(expectedName) || !current.description().equals(expectedDescription))
+      throw new ConflictException("当番の情報が更新されています。画面を更新して、もう一度編集してください。");
+    duties.updateDetails(id, name.trim(), description.trim());
+  }
+
   private Duty getDuty(long id) {
     return duties.findById(id).orElseThrow(() -> new NotFoundException("当番が見つかりません。"));
   }
@@ -101,7 +129,13 @@ public class DutyService {
 
   @Transactional(readOnly = true)
   public List<Duty> findAll() {
-    return duties.findAll();
+    var rules = schedules.rules();
+    return duties.findAll().stream()
+        .map(
+            d ->
+                assignmentProjection.current(
+                    d, rules.get(d.id()), schedules.meetings(d.id()), LocalDate.now(clock)))
+        .toList();
   }
 
   @Transactional(readOnly = true)

@@ -4,6 +4,8 @@ export type ScheduleRow = WorkOccurrence &
     key: string;
     grouped: boolean;
     events: readonly WorkOccurrence[];
+    executionStart: string | null;
+    executionEnd: string | null;
     executionCount: number;
     holidayCount: number;
   }>;
@@ -30,6 +32,10 @@ export function groupOccurrences(occurrences: readonly WorkOccurrence[]): readon
   }
   return Array.from(groups, ([key, events]) => {
     const first = events[0];
+    const executionDates = events
+      .filter(event => !event.holiday && event.date !== null)
+      .map(event => event.date!)
+      .sort();
     const warnings = [
       ...new Set(
         events.map(event => event.warning).filter((warning): warning is string => !!warning),
@@ -41,6 +47,8 @@ export function groupOccurrences(occurrences: readonly WorkOccurrence[]): readon
       grouped:
         first.rotationMode === 'CALENDAR' && first.periodStart !== null && first.periodEnd !== null,
       events: [...events],
+      executionStart: executionDates[0] ?? null,
+      executionEnd: executionDates.at(-1) ?? null,
       executionCount: events.filter(event => !event.holiday).length,
       holidayCount: events.filter(event => event.holiday).length,
       warning: warnings.length ? warnings.join(' / ') : null,

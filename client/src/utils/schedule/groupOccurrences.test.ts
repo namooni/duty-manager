@@ -81,3 +81,43 @@ describe('schedule ownership summaries', () => {
     ).toHaveLength(2);
   });
 });
+
+it('uses real execution dates for the visible range while preserving the calendar rotation period', () => {
+  const [row] = groupOccurrences(
+    Array.from({length: 5}, (_, i) =>
+      event(i, {
+        date: '2026-10-' + String(5 + i).padStart(2, '0'),
+        periodStart: '2026-10-05',
+        periodEnd: '2026-10-11',
+      }),
+    ),
+  );
+  expect(row.executionStart).toBe('2026-10-05');
+  expect(row.executionEnd).toBe('2026-10-09');
+  expect(row.periodStart).toBe('2026-10-05');
+  expect(row.periodEnd).toBe('2026-10-11');
+});
+it('excludes holiday endpoints, handles unsorted data, and limits the range to loaded executions', () => {
+  const [row] = groupOccurrences([
+    event(4, {holiday: true}),
+    event(3),
+    event(0, {holiday: true}),
+    event(2),
+    event(1),
+  ]);
+  expect(row.executionStart).toBe('2026-11-03');
+  expect(row.executionEnd).toBe('2026-11-05');
+  const [partial] = groupOccurrences([event(3), event(2)]);
+  expect(partial.executionStart).toBe('2026-11-04');
+  expect(partial.executionEnd).toBe('2026-11-05');
+});
+it('does not invent an execution range on all-holiday or undecided rows and retains real weekend work', () => {
+  const [holiday] = groupOccurrences([event(0, {holiday: true})]);
+  expect(holiday.executionStart).toBeNull();
+  expect(holiday.executionEnd).toBeNull();
+  const [pending] = groupOccurrences([event(0, {date: null, periodStart: null, periodEnd: null})]);
+  expect(pending.executionStart).toBeNull();
+  const [weekend] = groupOccurrences([event(6)]);
+  expect(weekend.executionStart).toBe('2026-11-08');
+  expect(weekend.executionEnd).toBe('2026-11-08');
+});

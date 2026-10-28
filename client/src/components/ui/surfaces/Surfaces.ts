@@ -16,14 +16,14 @@ export const Muted = styled(Text).attrs({as: 'p'})`
 `;
 export const Panel = styled(Flex).attrs({as: 'section'})`
   flex-direction: column;
-  background: white;
+  background: ${({theme}) => theme.semantic.surfacePrimary};
   border: 1px solid ${({theme}) => theme.palette.gray200};
-  border-radius: 13px;
+  border-radius: ${({theme}) => theme.radius.md};
   overflow: hidden;
   min-width: 0;
 `;
 export const PanelHead = styled(Between)`
-  padding: 21px 24px;
+  padding: 12px 16px;
   border-bottom: 1px solid ${({theme}) => theme.palette.gray100};
   h2 {
     margin-bottom: 3px;
@@ -31,12 +31,13 @@ export const PanelHead = styled(Between)`
 `;
 export const PanelBody = styled(Flex)`
   flex-direction: column;
-  padding: 22px 24px;
+  gap: 16px;
+  padding: 16px;
 `;
 export const Stack = styled(Flex)`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 `;
 export const TableWrap = styled(Flex)`
   flex-direction: column;
@@ -48,17 +49,24 @@ export const Table = styled.table`
   border-collapse: collapse;
   text-align: left;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   th {
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     font-size: 11px;
     font-weight: 600;
     color: ${({theme}) => theme.palette.gray500};
     background: ${({theme}) => theme.palette.tableHeader};
-    padding: 12px 23px;
+    padding: 12px 16px;
   }
   td {
-    padding: 17px 23px;
+    padding: 14px 16px;
+    vertical-align: top;
     border-bottom: 1px solid ${({theme}) => theme.palette.mutedSurface};
     font-size: 13px;
+  }
+  tbody tr:hover {
+    background: ${({theme}) => theme.palette.subtle};
   }
   tbody tr:last-child td {
     border: 0;
@@ -68,25 +76,21 @@ export const Table = styled.table`
     color: ${({theme}) => theme.palette.tableCaption};
     font-size: 11px;
   }
-  button {
-    min-height: 32px;
-    padding: 5px 10px;
-    font-size: 12px;
-  }
 `;
 export const Badge = styled(Text)<{$muted?: boolean}>`
   display: inline-block;
-  background: ${p => (p.$muted ? p.theme.palette.mutedSurface : p.theme.palette.green100)};
-  color: ${p => (p.$muted ? p.theme.palette.gray500 : p.theme.palette.green700)};
-  padding: 3px 9px;
-  border-radius: 5px;
+  background: ${p => (p.$muted ? p.theme.palette.subtle : p.theme.palette.surface)};
+  color: ${p => (p.$muted ? p.theme.palette.textMuted : p.theme.palette.textMain)};
+  padding: 2px 6px;
+  border: 1px solid ${({theme}) => theme.palette.border};
+  border-radius: ${({theme}) => theme.radius.sm};
   font-size: 11px;
   font-weight: 600;
 `;
 export const Empty = styled(Flex)`
   align-items: center;
   flex-direction: column;
-  padding: 44px 24px;
+  padding: 24px 16px;
   text-align: center;
   color: ${({theme}) => theme.palette.emptyText};
   strong {
@@ -104,7 +108,7 @@ export const Empty = styled(Flex)`
 export const Field = styled(Flex).attrs({as: 'label'})`
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   color: ${({theme}) => theme.palette.fieldLabel};
   font-size: 12px;
   font-weight: 600;
@@ -114,20 +118,21 @@ export const Field = styled(Flex).attrs({as: 'label'})`
 export const Form = styled(Flex).attrs({as: 'form'})`
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 `;
 export const Alert = styled(Flex)<{$success?: boolean}>`
   border: 1px solid ${p => (p.$success ? p.theme.palette.successBorder : p.theme.palette.red300)};
   background: ${p => (p.$success ? p.theme.palette.successSurface : p.theme.palette.red100)};
   color: ${p => (p.$success ? p.theme.palette.successText : p.theme.palette.red700)};
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin: 16px 0;
+  padding: 10px 12px;
+  border-radius: ${({theme}) => theme.radius.md};
+  margin: 12px 0;
   font-size: 13px;
 `;
 export const ListItem = styled(Flex)`
   flex-direction: column;
-  padding: 17px 0;
+  gap: 6px;
+  padding: 12px 0;
   border-bottom: 1px solid ${({theme}) => theme.palette.gray100};
   &:last-child {
     border: 0;
@@ -142,7 +147,7 @@ export const ListItem = styled(Flex)`
   .names {
     margin-top: 8px;
     display: flex;
-    gap: 7px;
+    gap: 6px;
     flex-wrap: wrap;
   }
   .warning {

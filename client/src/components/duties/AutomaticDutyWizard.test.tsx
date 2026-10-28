@@ -54,5 +54,5 @@ it('renders all five meeting turns as individual dates or undecided dates', asyn
   expect(
     screen.queryByText(/6週間|最初に予定を確定する終了日|担当者を決める期間の最終日/),
   ).toBeNull();
-  expect(screen.getByRole('button', {name: 'このルールで開始'})).toBeTruthy();
+  expect(screen.getByRole('button', {name: 'この内容で作成'})).toBeTruthy();
 });

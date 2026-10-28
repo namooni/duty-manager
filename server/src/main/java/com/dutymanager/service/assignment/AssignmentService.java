@@ -40,6 +40,7 @@ public class AssignmentService {
 
   @Transactional
   public void replace(long assignmentId, Replacement input) {
+    duties.lockPlanning();
     Assignment initial = getAssignment(assignmentId);
     lockDuty(initial.dutyId());
     Assignment assignment = getAssignment(assignmentId);

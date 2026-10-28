@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import * as U from '@/components/ui';
 export const ScheduleSection = styled(U.Flex).attrs({as: 'section'})`
   flex-direction: column;
-  margin-top: 40px;
+  margin-top: 8px;
   gap: 16px;
   min-width: 0;
 `;
@@ -20,9 +20,9 @@ export const RangeText = styled(U.Text)(props => ({
   fontVariantNumeric: 'tabular-nums',
 }));
 export const Filters = styled(U.Row)(props => ({
-  padding: '18px 20px',
+  padding: '12px 16px',
   background: props.theme.palette.white,
   border: '1px solid ' + props.theme.palette.boardLine,
-  borderRadius: 8,
+  borderRadius: props.theme.radius.md,
   alignItems: 'end',
 }));

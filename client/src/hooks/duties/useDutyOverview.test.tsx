@@ -50,3 +50,25 @@ describe('overview query isolation', () => {
     expect(result.current.loading).toBe(false);
   });
 });
+
+it('identifies a company holiday independently of schedule events and the viewed range', () => {
+  const {result} = renderHook(() =>
+    useDutyOverview('2026-10-26', 0, 0, {
+      ...source,
+      data: schedule([]),
+      holidays: [{date: '2026-10-26', name: '創立記念日'}],
+    }),
+  );
+  expect(result.current.today).toEqual([]);
+  expect(result.current.todayHoliday).toEqual({date: '2026-10-26', name: '創立記念日'});
+});
+it('keeps holiday-enabled duties visible and does not label other dates a holiday', () => {
+  const {result} = renderHook(() =>
+    useDutyOverview('2026-10-26', 0, 0, {
+      ...source,
+      holidays: [{date: '2026-10-27', name: '会社休業'}],
+    }),
+  );
+  expect(result.current.today).toHaveLength(1);
+  expect(result.current.todayHoliday).toBeNull();
+});

@@ -28,7 +28,8 @@ class ApiIntegrationTest {
               + " duty_rotation_slots WHERE duty_id=?)",
           createdDuty);
       for (String table :
-          java.util.List.of("duty_rotation_slots", "duty_meetings", "duty_schedules"))
+          java.util.List.of(
+              "duty_rotation_slots", "duty_meetings", "duty_schedule_ranges", "duty_schedules"))
         db.update("DELETE FROM " + table + " WHERE duty_id=?", createdDuty);
       db.update(
           "DELETE FROM assignment_changes WHERE assignment_id IN (SELECT id FROM assignments WHERE"
@@ -60,6 +61,80 @@ class ApiIntegrationTest {
         Pattern.compile("\\\"" + name + "\\\"\\s*:\\s*(?:\\\")?([^\\\",}]+)").matcher(json);
     assertThat(matcher.find()).isTrue();
     return matcher.group(1);
+  }
+
+  @Test
+  void employeeEditValidationConflictAndDeletionWorkOverHttp() throws Exception {
+    var created = call("POST", "/employees", "{\"employeeNumber\":\"HTTP_EDIT\",\"name\":\"編集前\"}");
+    assertThat(created.statusCode()).isEqualTo(201);
+    long id = Long.parseLong(field(created.body(), "id"));
+    createdEmployees.add(id);
+    String input =
+        """
+        {"employee":{"employeeNumber":"HTTP_EDIT2","name":"編集後"},"expected":{"employeeNumber":"HTTP_EDIT","name":"編集前"}}
+        """;
+    assertThat(call("PATCH", "/employees/" + id, input).statusCode()).isEqualTo(204);
+    assertThat(call("GET", "/employees", null).body()).contains("HTTP_EDIT2", "編集後");
+    assertThat(call("PATCH", "/employees/" + id, input).statusCode()).isEqualTo(409);
+    assertThat(
+            call(
+                    "PATCH",
+                    "/employees/" + id,
+                    """
+                    {"employee":{"employeeNumber":" ","name":"編集後"},"expected":{"employeeNumber":"HTTP_EDIT2","name":"編集後"}}
+                    """)
+                .statusCode())
+        .isEqualTo(400);
+    assertThat(call("GET", "/employees/" + id + "/deletion-status", null).body())
+        .contains("\"canDelete\":true");
+    assertThat(call("DELETE", "/employees/" + id, null).statusCode()).isEqualTo(204);
+    assertThat(call("DELETE", "/employees/" + id, null).statusCode()).isEqualTo(404);
+    assertThat(call("GET", "/employees/" + id + "/deletion-status", null).statusCode())
+        .isEqualTo(404);
+  }
+
+  @Test
+  void dutyDeletionReturnsNoContentAndMissingDutyReturnsNotFound() throws Exception {
+    var employee =
+        call("POST", "/employees", "{\"employeeNumber\":\"HTTP_DELETE\",\"name\":\"担当者\"}");
+    assertThat(employee.statusCode()).isEqualTo(201);
+    String person = field(employee.body(), "id");
+    createdEmployees.add(Long.parseLong(person));
+    var task =
+        call(
+            "POST",
+            "/duties",
+            """
+            {"name":"削除対象","description":"","anchorDate":"%s","intervalCount":1,
+             "intervalUnit":"WEEK","strategy":"CUSTOM","assigneeCount":1,"memberIds":[%s]}
+            """
+                .formatted(LocalDate.now(clock), person));
+    assertThat(task.statusCode()).isEqualTo(201);
+    createdDuty = Long.parseLong(field(task.body(), "id"));
+    assertThat(call("GET", "/employees/" + person + "/deletion-status", null).body())
+        .contains("\"canDelete\":false");
+    assertThat(call("DELETE", "/employees/" + person, null).statusCode()).isEqualTo(409);
+    assertThat(call("GET", "/duties/" + createdDuty, null).body()).contains("削除対象");
+    String update =
+        """
+        {"name":"編集後","description":"年間予定","expectedName":"削除対象","expectedDescription":""}
+        """;
+    assertThat(call("PATCH", "/duties/" + createdDuty, update).statusCode()).isEqualTo(204);
+    assertThat(call("GET", "/duties/" + createdDuty, null).body()).contains("編集後", "年間予定");
+    assertThat(call("PATCH", "/duties/" + createdDuty, update).statusCode()).isEqualTo(409);
+    assertThat(
+            call(
+                    "PATCH",
+                    "/duties/" + createdDuty,
+                    """
+                    {"name":" ","description":"","expectedName":"編集後","expectedDescription":"年間予定"}
+                    """)
+                .statusCode())
+        .isEqualTo(400);
+    assertThat(call("DELETE", "/duties/" + createdDuty, null).statusCode()).isEqualTo(204);
+    assertThat(call("DELETE", "/duties/" + createdDuty, null).statusCode()).isEqualTo(404);
+    assertThat(call("GET", "/duties/" + createdDuty + "/exclusions", null).statusCode())
+        .isEqualTo(404);
   }
 
   @Test
@@ -174,9 +249,9 @@ class ApiIntegrationTest {
         """
         {"duty":{"name":"定例会","description":"","anchorDate":"%s","intervalCount":1,
         "intervalUnit":"MONTH","strategy":"EMPLOYEE_NUMBER","assigneeCount":1,"memberIds":[%d]},
-        "schedule":{"recurrence":"EXPLICIT_DATES","rotationMode":"OCCURRENCE","weekdays":[],"everyDays":1,"monthDay":1,"monthOrdinal":1,"weekday":1},"dates":[],"seed":12345}
+        "schedule":{"recurrence":"EXPLICIT_DATES","rotationMode":"OCCURRENCE","weekdays":[],"everyDays":1,"monthDay":1,"monthOrdinal":1,"weekday":1},"dates":[],"seed":12345,"plannedThrough":"%s"}
         """
-            .formatted(date, person);
+            .formatted(date, person, LocalDate.now(clock).plusDays(60));
     var preview = call("POST", "/automatic-duties/preview", draft);
     assertThat(preview.statusCode()).isEqualTo(200);
     assertThat(preview.body()).contains("\"start\":null");
@@ -203,6 +278,42 @@ class ApiIntegrationTest {
     var dated = call("POST", "/automatic-duties/schedule", query);
     assertThat(dated.statusCode()).isEqualTo(200);
     assertThat(dated.body()).contains("\"date\":\"" + meetingDate + "\"");
+    var exportBody =
+        "{\"from\":\""
+            + date
+            + "\",\"to\":\""
+            + LocalDate.now(clock).plusDays(60)
+            + "\",\"format\":\"MEETING\",\"includeUndated\":true}";
+    var request =
+        HttpRequest.newBuilder(
+                URI.create(
+                    "http://127.0.0.1:"
+                        + port
+                        + "/api/automatic-duties/"
+                        + createdDuty
+                        + "/export"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(exportBody))
+            .build();
+    var file = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+    assertThat(file.statusCode()).isEqualTo(200);
+    assertThat(file.headers().firstValue("Content-Type").orElseThrow())
+        .contains("spreadsheetml.sheet");
+    assertThat(file.headers().firstValue("Content-Disposition").orElseThrow())
+        .contains("attachment", ".xlsx");
+    assertThat(file.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
+    try (var book =
+        new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+            new java.io.ByteArrayInputStream(file.body()))) {
+      assertThat(book.getSheetAt(0).getRow(9).getCell(1).getLocalDateTimeCellValue().toLocalDate())
+          .isEqualTo(LocalDate.parse(meetingDate));
+    }
+    assertThat(
+            call("POST", "/automatic-duties/" + createdDuty + "/export", "{\"format\":\"MEETING\"}")
+                .statusCode())
+        .isEqualTo(400);
+    assertThat(call("POST", "/automatic-duties/999999999/export", exportBody).statusCode())
+        .isEqualTo(404);
   }
 
   @Test

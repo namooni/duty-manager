@@ -1,3 +1,4 @@
+import {EmployeeFields} from '@/components/employees/EmployeeFields';
 import type {DutyManager as Manager} from '@/hooks/duties/useDutyManager';
 import {AutomaticDutyWizard} from './AutomaticDutyWizard';
 import * as U from '@/components/ui';
@@ -14,7 +15,6 @@ export function DutyForms({m}: {m: Manager}) {
   if (!m.modal) return null;
   const titles = {
     employee: 'メンバーを追加',
-    exclusion: '対象外の期間を追加',
     replace: '担当者の変更・履歴',
   };
   return (
@@ -27,98 +27,13 @@ export function DutyForms({m}: {m: Manager}) {
             void m.saveEmployee();
           }}
         >
-          <U.Field>
-            <U.Text>社員番号</U.Text>
-            <U.Input
-              required
-              maxLength={40}
-              autoFocus
-              value={m.employeeForm.employeeNumber}
-              onChange={e => m.updateEmployee('employeeNumber', e.target.value)}
-              placeholder="例：001"
-            />
-          </U.Field>
-          <U.Field>
-            <U.Text>名前</U.Text>
-            <U.Input
-              required
-              maxLength={80}
-              value={m.employeeForm.name}
-              onChange={e => m.updateEmployee('name', e.target.value)}
-              placeholder="例：田中 太郎"
-            />
-          </U.Field>
+          <EmployeeFields form={m.employeeForm} onChange={m.updateEmployee} />
           <U.Muted>
             <U.Text>
               社員番号順は文字列順です。001、002のように桁数をそろえると並びが安定します。
             </U.Text>
           </U.Muted>
           <Footer m={m} label="メンバーを登録" />
-        </U.Form>
-      )}
-      {m.modal === 'exclusion' && (
-        <U.Form
-          onSubmit={e => {
-            e.preventDefault();
-            void m.saveExclusion();
-          }}
-        >
-          <U.Muted>
-            {m.selectedDuty?.name}
-            <U.Text> の対象外期間を設定します。</U.Text>
-          </U.Muted>
-          <U.Field>
-            <U.Text>メンバー</U.Text>
-            <U.Select
-              required
-              autoFocus
-              value={m.exclusionForm.employeeId}
-              onChange={e => m.updateExclusion('employeeId', e.target.value)}
-            >
-              <option value="">選択してください</option>
-              {m.memberChoices.map(e => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </U.Select>
-          </U.Field>
-          <U.Row>
-            <U.Field>
-              <U.Text>開始日</U.Text>
-              <U.Input
-                required
-                type="date"
-                value={m.exclusionForm.startDate}
-                onChange={e => m.updateExclusion('startDate', e.target.value)}
-              />
-            </U.Field>
-            <U.Field>
-              <U.Text>終了日</U.Text>
-              <U.Input
-                required
-                type="date"
-                value={m.exclusionForm.endDate}
-                onChange={e => m.updateExclusion('endDate', e.target.value)}
-              />
-            </U.Field>
-          </U.Row>
-          <U.Field>
-            <U.Text>理由</U.Text>
-            <U.Textarea
-              required
-              maxLength={300}
-              value={m.exclusionForm.reason}
-              onChange={e => m.updateExclusion('reason', e.target.value)}
-              placeholder="例：休暇のため"
-            />
-          </U.Field>
-          <U.Muted>
-            <U.Text>
-              担当期間に1日でも重なると、その期間は割当対象外になります。確定済みの担当期間と重なる場合は、先に担当者を変更してください。
-            </U.Text>
-          </U.Muted>
-          <Footer m={m} label="対象外の期間を追加" />
         </U.Form>
       )}
       {m.modal === 'replace' && m.editing && (

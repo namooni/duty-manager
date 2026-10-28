@@ -17,4 +17,10 @@ public interface DutyRepository {
   long save(DutyDefinition definition, Long randomSeed);
 
   boolean lockById(long id);
+
+  void lockPlanning();
+
+  void delete(long id);
+
+  void updateDetails(long id, String name, String description);
 }

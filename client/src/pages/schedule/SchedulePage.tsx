@@ -1,10 +1,8 @@
-import {useState} from 'react';
 import {useDutyManager} from '@/hooks/duties/useDutyManager';
 import {useAutomaticSchedule} from '@/hooks/duties/useAutomaticSchedule';
-import {useDutyOverview} from '@/hooks/duties/useDutyOverview';
 import {useScheduleRange} from '@/hooks/duties/useScheduleRange';
 import {DutyPageLayout} from '@/components/layouts/DutyPageLayout';
-import {ScheduleOverview} from '@/components/duties/ScheduleOverview';
+import {SchedulePersonFilters} from '@/components/duties/SchedulePersonFilters';
 import {ScheduleList} from '@/components/duties/ScheduleList';
 import {LegacySchedule} from '@/components/duties/LegacySchedule';
 import {AutomaticScheduleDialogs} from '@/components/duties/AutomaticScheduleDialogs';
@@ -12,37 +10,18 @@ import * as U from '@/components/ui';
 import * as S from './SchedulePage.styles';
 export function SchedulePage() {
   const m = useDutyManager();
-  const work = useAutomaticSchedule(m.from, m.to, m.revision, m.employees, m.today);
-  const overview = useDutyOverview(m.today, m.revision, work.refreshVersion, {
-    from: m.from,
-    to: m.to,
-    loadedRange: work.loadedRange,
-    data: work.scheduleData,
-    loading: work.loading,
-    error: work.dialog ? '' : work.error,
+  const work = useAutomaticSchedule(m.from, m.to, m.revision, m.employees, m.today, {
+    legacyAssignments: m.assignments,
+    duties: m.duties,
   });
   const range = useScheduleRange(m.today, m.from, m.to, m.setFrom, m.setTo);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  function showDuty(id: number) {
-    work.setFilter(String(id));
-    document.getElementById('schedule-list')?.scrollIntoView({behavior: 'smooth', block: 'start'});
-  }
   return (
     <DutyPageLayout m={m}>
-      <ScheduleOverview
-        overview={overview}
-        today={m.today}
-        work={work}
-        hasEmployees={!!m.employees.length}
-        onAddEmployee={() => m.open('employee')}
-        onCreate={() => m.open('duty')}
-        onShowDuty={showDuty}
-      />
       <S.ScheduleSection id="schedule-list" aria-labelledby="schedule-heading">
         <S.Toolbar>
           <U.Flex flexDirection="column" gap={3}>
             <U.Text as="h2" id="schedule-heading">
-              予定一覧
+              表示期間
             </U.Text>
             <S.RangeText>
               {m.from} 〜 {m.to}
@@ -67,10 +46,11 @@ export function SchedulePage() {
             </U.Button>
             <U.Button
               size="sm"
-              variant="text"
-              aria-expanded={filtersOpen}
+              variant={range.isCustom ? 'secondary' : 'text'}
+              aria-pressed={range.isCustom}
+              aria-expanded={range.customOpen}
               aria-controls="schedule-filters"
-              onClick={() => setFiltersOpen(value => !value)}
+              onClick={range.toggleCustom}
             >
               期間を指定
             </U.Button>
@@ -81,41 +61,39 @@ export function SchedulePage() {
               onChange={event => work.setFilter(event.target.value)}
             >
               <option value="">すべての当番</option>
-              {work.duties.map(config => (
-                <option key={config.duty.id} value={config.duty.id}>
-                  {config.duty.name}
+              {work.dutyChoices.map(duty => (
+                <option key={duty.id} value={duty.id}>
+                  {duty.name}
                 </option>
               ))}
             </U.Select>
           </U.Row>
         </S.Toolbar>
-        {filtersOpen && (
+        <SchedulePersonFilters work={work} />
+        {range.customOpen && (
           <S.Filters id="schedule-filters">
             <U.Field>
               <U.Text>表示開始日</U.Text>
               <U.Input
                 type="date"
                 value={m.from}
-                onChange={event => m.setFrom(event.target.value)}
+                onChange={event => range.setCustomFrom(event.target.value)}
               />
             </U.Field>
             <U.Field>
               <U.Text>表示終了日</U.Text>
-              <U.Input type="date" value={m.to} onChange={event => m.setTo(event.target.value)} />
+              <U.Input
+                type="date"
+                value={m.to}
+                onChange={event => range.setCustomTo(event.target.value)}
+              />
             </U.Field>
-            <U.Button variant="text" onClick={() => setFiltersOpen(false)}>
+            <U.Button variant="text" onClick={range.closeCustom}>
               閉じる
             </U.Button>
           </S.Filters>
         )}
-        {work.error && !work.dialog && overview.error !== work.error && (
-          <U.Alert role="alert">{work.error}</U.Alert>
-        )}
-        {work.notice && (
-          <U.Alert $success role="status">
-            {work.notice}
-          </U.Alert>
-        )}
+        {work.error && !work.dialog && <U.Alert role="alert">{work.error}</U.Alert>}
         <ScheduleList m={m} work={work} />
         <U.Between>
           <S.RangeText>
@@ -126,7 +104,7 @@ export function SchedulePage() {
           </U.Button>
         </U.Between>
       </S.ScheduleSection>
-      <LegacySchedule m={m} />
+      <LegacySchedule m={m} assignments={work.legacyAssignments} />
       <AutomaticScheduleDialogs m={work} today={m.today} />
     </DutyPageLayout>
   );

@@ -68,3 +68,13 @@ describe('API error contract', () => {
     expect(error.getFieldMessage('name')).toBe('名前を入力してください。');
   });
 });
+
+it('preserves Japanese server messages in binary download error responses', () => {
+  const bytes = new TextEncoder().encode(
+    JSON.stringify({message: '出力期間を確認してください。'}),
+  ).buffer;
+  expect(normalizeApiError(httpError(400, bytes)).message).toBe('出力期間を確認してください。');
+  expect(normalizeApiError(httpError(500, new Uint8Array([0, 1]).buffer)).message).toBe(
+    'サーバーでエラーが発生しました。',
+  );
+});

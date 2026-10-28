@@ -23,6 +23,10 @@ public class ScheduleAccess {
     return duties.findById(id).orElseThrow(() -> new NotFoundException("当番が見つかりません。"));
   }
 
+  public void lockPlanning() {
+    duties.lockPlanning();
+  }
+
   public void lock(long id) {
     if (!duties.lockById(id)) throw new NotFoundException("当番が見つかりません。");
   }

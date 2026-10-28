@@ -23,9 +23,10 @@ export type ScheduleRule = Readonly<{
 export type AutomaticDraft = Readonly<{
   duty: DutyInput;
   schedule: ScheduleRule;
-  dates: readonly string[];
+  dates: readonly (string | null)[];
   seed: number;
-  previewCount?: number;
+  endDate?: string | null;
+  plannedThrough?: string;
 }>;
 export type RotationTurn = Readonly<{
   key: string;
@@ -35,12 +36,19 @@ export type RotationTurn = Readonly<{
   assignees: readonly Employee[];
   warning: string | null;
 }>;
-export type RotationPreview = Readonly<{token: string; turns: readonly RotationTurn[]}>;
+export type ScheduleRange = Readonly<{endDate: string | null; plannedThrough: string}>;
+export type AllocationExtension = Readonly<{plannedThrough: string; additionalMeetings: number}>;
+export type RotationPreview = Readonly<{
+  token: string;
+  turns: readonly RotationTurn[];
+  range?: ScheduleRange | null;
+}>;
 export type Meeting = Readonly<{sequence: number; date: string | null}>;
 export type AutomaticDuty = Readonly<{
   duty: Duty;
   schedule: ScheduleRule;
   meetings: readonly Meeting[];
+  range?: ScheduleRange | null;
 }>;
 export type WorkAssignee = Readonly<{
   slotId: number;
@@ -60,6 +68,8 @@ export type WorkOccurrence = Readonly<{
   assignees: readonly WorkAssignee[];
   warning: string | null;
   holiday: boolean;
+  dateEditable?: boolean;
+  segmented?: boolean;
 }>;
 export type ScheduleResult = Readonly<{
   occurrences: readonly WorkOccurrence[];

@@ -246,3 +246,36 @@ message 우선 표시의 호환성은 유지하되 새 필드가 이미 구현�
 
 서버는 내부 SQL·stack trace·secret를 message/detail에 넣지 않는다.
 DB 잠금 실패나 교착 뒤 일부 성공으로 응답하지 않는다. rollback 후 안전한 동일 명령 재시도 경로만 제공한다.
+
+## 当番の削除
+
+DELETE /api/duties/{id}
+
+- 成功: 204 No Content。対象なし: 404。
+- 対象当番の行ロックを取得し、同一トランザクションで変更履歴、担当割当、開催日、実施・交代ルール、対象外期間、参加者の紐付け、当番本体を削除する。途中の失敗は全体をロールバックする。
+- メンバー本体・ほかの当番・会社休業日は変更しない。
+- UIで当番名と削除範囲、復元不可であることを表示し、ユーザーの明示的な確定後に呼び出す。
+
+## 当番詳細と基本情報編集
+
+- GET /api/duties/{id}: 当番1件の詳細。存在しないIDは404。
+- PATCH /api/duties/{id}: name、description、expectedName、expectedDescriptionを受け取る。名前1〜100文字、説明1000文字以内。成功204。対象行をロックし元の名前・説明と照合する。不一致409、対象なし404、入力不正400。
+- 基本情報のみ更新し、実施・交代ルール、開催日、保存済み担当、順番、変更履歴には触れない。DB変更なし。
+- POST /api/automatic-duties/{id}/schedule: {from,to} を受け取り対象IDの年間予定を返す。最大367日。範囲と戻り値形式は全体scheduleと共通。対象以外の当番の担当枠を生成・更新しない。対象なし404。
+- 未定の回はdate:nullで返す。UIでは年が未確定の回として別に表示する。他当番との同日重複確認は全体の予定一覧で行う。
+
+## メンバー編集・削除
+
+- PATCH /api/employees/{id}: {employee:{name,employeeNumber},expected:{name,employeeNumber}}。成功204、対象なし404、元情報の不一致／社員番号の重複409、入力不正400。名前は1〜80文字、社員番号は1〜40文字。ID・active・保存済み割当は変更しない。
+- GET /api/employees/{id}/deletion-status: {canDelete:boolean}。確認用の関連チェック。対象なし404。
+- DELETE /api/employees/{id}: 成功204、対象なし404、関連あり409。社員行ロックの下で関連を再確認する。DBのFKも保ち、他レコードを連鎖削除しない。
+- 関連判定はduty_members、exclusions、assignments、duty_rotation_slots、assignment_changes、duty_rotation_changes。変更履歴はprevious_employee_idとnew_employee_idを両方確認する。
+- 表示名・社員番号は参照先でも現在値を表示する。active切替APIは従来どおり。スキーマ変更なし。
+
+## 규칙 변경의 우선 정책（2026-10-27）
+
+[참가자·규칙 변경 정책](../../../docs/policies/rule-change-policy.md)을 우선한다. 적용 경계 이후 미래 자동 배정은 변경 미리보기 승인으로 갱신할 수 있고, 새 규칙도 기존의 다음 차례부터 이어간다. 조회·자동 저장을 보호 확정과 동일시해 적용일을 밀지 않는다. 과거·진행 중인 기간·수동 변경의 보호를 구분하고, 승인된 영향 전체와 규칙 버전·순환 상태·변경 전후 이력을 한 트랜잭션으로 반영하도록 설계한다. 현재 규칙 편집 API·버전 저장·보호 구분은 미구현이며, 새 필드·API·마이그레이션은 미합의 항목을 결정한 후 정의한다. 기존 확정 불변 원칙은 일반 조회·자동 갱신에 유지하며, 이번 명시적 규칙 변경 승인만 구분한다.
+
+## 現行の担当変更API
+
+担当変更の実装済みエンドポイントは [実装仕様](../../../docs/policies/assignment-change-implementation.md) を参照。現行は数値ID・両端を含む担当期間・確認トークンを用い、この文書の目標APIへ一括移行したものではない。

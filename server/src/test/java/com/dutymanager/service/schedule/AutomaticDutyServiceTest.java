@@ -29,6 +29,8 @@ class AutomaticDutyServiceTest {
   @Autowired ScheduleRepository schedules;
   @Autowired JdbcTemplate db;
   @Autowired Clock clock;
+  @Autowired ScheduleDateChangeService dateChanges;
+  @Autowired ScheduleAllocationService allocations;
   List<Long> ids;
   LocalDate anchor;
 
@@ -53,6 +55,38 @@ class AutomaticDutyServiceTest {
     return service.activate(input, service.preview(input).token());
   }
 
+  @Autowired com.dutymanager.service.duty.DutyService dutyService;
+
+  @Test
+  void annualDutyQueryKeepsOtherDutiesUntouchedAndMetadataEditsKeepAssignments() {
+    var definition =
+        input(
+            rule(Recurrence.MONTHLY_DAY, RotationMode.OCCURRENCE),
+            List.of(),
+            Strategy.EMPLOYEE_NUMBER);
+    long target = activate(definition), other = activate(definition);
+    var otherBefore = schedules.slots(other);
+    int year = anchor.getYear() + 1;
+    var extension = new AllocationExtension(LocalDate.of(year, 12, 31), 0);
+    var preview = allocations.preview(target, extension);
+    allocations.confirm(target, extension, preview.token());
+    var result = live.schedule(target, LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
+    assertThat(result.duties()).hasSize(1);
+    assertThat(result.occurrences()).hasSize(12).allMatch(event -> event.dutyId() == target);
+    assertThat(schedules.slots(other)).isEqualTo(otherBefore);
+    var before = schedules.slots(target);
+    var current = dutyService.findById(target);
+    dutyService.updateDetails(target, "新しい名前", "説明", current.name(), current.description());
+    assertThat(schedules.slots(target)).isEqualTo(before);
+    assertThat(dutyService.findById(target).name()).isEqualTo("新しい名前");
+    assertThatThrownBy(
+            () ->
+                dutyService.updateDetails(
+                    target, "古い画面から更新", "", current.name(), current.description()))
+        .isInstanceOf(ConflictException.class);
+    assertThat(dutyService.findById(target).name()).isEqualTo("新しい名前");
+  }
+
   @Test
   void twelveExplicitMeetingsUseAllTwelveDatesAndRepeatFiveParticipants() {
     var dates =
@@ -70,7 +104,7 @@ class AutomaticDutyServiceTest {
           .isEqualTo(ids.get(index % 5));
     }
     long id = service.activate(definition, preview.token());
-    assertThat(schedules.meetings(id)).hasSize(13);
+    assertThat(schedules.meetings(id)).hasSize(12);
     assertThat(schedules.slots(id)).hasSize(12);
   }
 
@@ -121,29 +155,33 @@ class AutomaticDutyServiceTest {
         live.schedule(anchor, anchor.plusDays(60)).occurrences().stream()
             .filter(o -> o.dutyId() == id)
             .toList();
-    assertThat(pending).hasSize(1);
+    assertThat(pending).hasSize(5);
     assertThat(pending.getFirst().date()).isNull();
     long slot = pending.getFirst().assignees().getFirst().slotId();
     meetings.updateMeeting(id, 0, anchor.plusDays(10));
-    meetings.updateMeeting(id, 0, anchor.plusDays(15));
+    var dateChange = new ScheduleDateChange("E:0", anchor.plusDays(15), "開催日変更");
+    dateChanges.confirm(id, dateChange, dateChanges.preview(id, dateChange).token());
     var rows =
         live.schedule(anchor, anchor.plusDays(60)).occurrences().stream()
             .filter(o -> o.dutyId() == id)
             .toList();
-    assertThat(rows).hasSize(2);
+    assertThat(rows).hasSize(5);
     assertThat(rows.getFirst().date()).isEqualTo(anchor.plusDays(15));
     assertThat(rows.getFirst().assignees().getFirst().slotId()).isEqualTo(slot);
     assertThat(rows.getFirst().assignees().getFirst().employeeId()).isEqualTo(ids.getFirst());
     assertThat(rows.getLast().date()).isNull();
-    assertThat(rows.getLast().assignees().getFirst().employeeId()).isEqualTo(ids.get(1));
+    assertThat(rows.get(1).assignees().getFirst().employeeId()).isEqualTo(ids.get(1));
   }
 
   @Test
-  void recurringMonthlyWorkContinuesPastOneCycleWithoutAnotherConfirmation() {
+  void recurringMonthlyWorkContinuesPastOneCycleAfterAnExplicitExtension() {
     long id =
         activate(
             input(
                 rule(Recurrence.MONTHLY_DAY, RotationMode.OCCURRENCE), List.of(), Strategy.CUSTOM));
+    var extension = new AllocationExtension(anchor.plusDays(300), 0);
+    var preview = allocations.preview(id, extension);
+    allocations.confirm(id, extension, preview.token());
     var rows =
         live.schedule(anchor, anchor.plusDays(300)).occurrences().stream()
             .filter(o -> o.dutyId() == id)
